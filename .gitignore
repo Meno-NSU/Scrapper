@@ -54,3 +54,6 @@ meno_database/
 # OS
 .DS_Store
 Thumbs.db
+
+# Libs
+crawl4ai/
