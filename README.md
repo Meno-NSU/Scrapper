@@ -15,15 +15,15 @@
 
 ```
 Scrapper/
-├── crawl_nsu_vk_knowledge.ipynb          # Скраппер группы ВКонтакте (берет ссылки из vk_urls.json, генерирует vk_scrapped.jsonl)
-├── crawl_nsu_web_knowledge.ipynb         # Скраппер веб-сайта (берет ссылки из web_urls.json, генерирует web_scrapped.jsonl)
-├── nsu_urls_spider.py                    # Паук для поиска URLs на сайте НГУ (использовался для получения части ссылок из web_urls.json)
+├── crawl_nsu_vk_knowledge.py                   # Скраппер группы ВКонтакте (берет ссылки из vk_urls.json, генерирует vk_scrapped_<date_1>_to_<date_2>.jsonl)
+├── crawl_nsu_web_knowledge.py                  # Скраппер веб-сайта (берет ссылки из web_urls.json, генерирует web_scrapped_<date>.jsonl)
+├── nsu_urls_spider.py                          # Паук для поиска URLs на сайте НГУ (использовался для получения части ссылок из web_urls.json)
 ├── resources/
-│   ├── vk_urls.json                      # Список ВК групп для сбора информации
-│   └── web_urls.json                     # Список веб-страниц НГУ для сбора информации
+│   ├── vk_urls.json                            # Список ВК групп для сбора информации
+│   └── web_urls.json                           # Список веб-страниц НГУ для сбора информации
 └── scrapped_data/
-    ├── vk_scrapped.jsonl                 # Собранные посты из ВК
-    └── web_scrapped.jsonl                # Собранный контент с веб-сайта
+    ├── vk_scrapped_<date_1>_to_<date_2>.jsonl  # Собранные посты из ВК в период с <date_1> по <date_2>
+    └── web_scrapped_<date>.jsonl               # Собранный контент с веб-сайта c датой сбора <date>
 ```
 
 ## Установка

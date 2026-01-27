@@ -176,6 +176,7 @@ def save_posts(
                 if min_date is not None:
                     if global_min_date is None or min_date < global_min_date:
                         global_min_date = min_date
+
                 if max_date is not None:
                     if global_max_date is None or max_date > global_max_date:
                         global_max_date = max_date
@@ -185,32 +186,29 @@ def save_posts(
             except Exception as e:
                 print(f"\n⚠️ Ошибка ({title}): {e}")
 
-    # Создаём КОПИЮ файла с диапазоном дат в названии, оставляя оригинал на месте
-    if global_min_date is not None and global_max_date is not None:
+    min_date_str = "nan"
+    if global_min_date is not None:
         min_date_str = datetime.datetime.fromtimestamp(global_min_date).strftime(
             "%Y-%m-%d"
         )
+
+    max_date_str = "nan"
+    if global_max_date is not None:
         max_date_str = datetime.datetime.fromtimestamp(global_max_date).strftime(
             "%Y-%m-%d"
         )
 
-        # Формируем имя с датами
-        new_name = (
-            output_filepath.stem
-            + f"_{min_date_str}_to_{max_date_str}"
-            + output_filepath.suffix
-        )
-        new_path = output_filepath.parent / new_name
+    # Формируем имя с датами
+    new_name = (
+        output_filepath.stem
+        + f"_{min_date_str}_to_{max_date_str}"
+        + output_filepath.suffix
+    )
+    new_path = output_filepath.parent / new_name
 
-        # Копируем файл вместо переименования
-        shutil.copy2(output_filepath, new_path)
-
-        print("\n🎉 Готово! Данные сохранены в:")
-        print(f"   1. {output_filepath} (основной файл)")
-        print(f"   2. {new_path} (архивная копия с датами)")
-        print(f"   Диапазон: с {min_date_str} по {max_date_str}")
-    else:
-        print(f"\n🎉 Готово! Все данные сохранены в {output_filepath}")
+    output_filepath.rename(new_path)
+    print(f"\n🎉 Готово! Данные сохранены в {output_filepath}")
+    print(f"   Диапазон: с {min_date_str} по {max_date_str}")
 
 
 def crawl_vk_knowledge(
@@ -226,6 +224,7 @@ def crawl_vk_knowledge(
     except Exception as e:
         print(f"❌ Ошибка авторизации: {e}")
         return
+
     # 2. Чтение списка групп
     try:
         groups_dict = get_groups(urls_filepath)
@@ -252,7 +251,7 @@ def main():
     # Имя входного файла
     INPUT_FILE = RESOURCES_DIR.joinpath("vk_urls.json")
 
-    # Файл для сохранения результатов
+    # Файл для сохранения результатов (В crawl_vk_knowledge к названию файла добавятся даты)
     OUTPUT = SCRAPPED_DATA_DIR.joinpath("vk_scrapped.jsonl")
 
     # Дата, НАЧИНАЯ С КОТОРОЙ скраппить посты (Unix timestamp)
@@ -261,7 +260,7 @@ def main():
     # None = скраппить все посты за всё время
     # Пример: 1609459200 для 2021-01-01
     # Можно использовать: int(datetime.datetime(2020, 1, 1).timestamp())
-    CUTOFF_DATE = None
+    CUTOFF_DATE = None # int(datetime.datetime(2026, 1, 1).timestamp())
 
     # Количество постов для скачивания (максимум 100 за один запрос)
     POSTS_PER_REQUEST = 100
