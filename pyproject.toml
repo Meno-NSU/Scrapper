@@ -1,0 +1,19 @@
+[project]
+name = "scrapper"
+version = "0.1.0"
+description = "Многоисточниковый скраппер для сбора контента НГУ из ВКонтакте и веб-сайта"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "vk-api>=11.9.9",
+    "scrapy>=2.11.0",
+    "python-dotenv>=1.0.0",
+    "tqdm>=4.66.0",
+    "crawl4ai>=0.4.247",
+]
+
+[project.optional-dependencies]
+dev = [
+    "jupyter>=1.0.0",
+    "ipykernel>=6.26.0",
+]
