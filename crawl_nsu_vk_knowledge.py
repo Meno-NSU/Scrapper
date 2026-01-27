@@ -27,7 +27,7 @@ def get_posts(vk: VkApiMethod, domain: str, count: int, offset: int):
 
 def to_output_dict(post: dict, name: str, link: str) -> dict:
     result = dict()
-    result["url"] = link
+    result["url"] = f"https://vk.com/wall{post['owner_id']}_{post['id']}"
     result["name"] = name
     result["content"] = post.get("text", " ")
 
