@@ -2,7 +2,7 @@ from pathlib import Path
 from datetime import datetime
 from pprint import pprint
 
-def is_date(date_str: str):
+def _is_date(date_str: str):
     try:
         # Указываем формат, который мы ожидаем (ГГГГ-ММ-ДД)
         datetime.strptime(date_str, "%Y-%m-%d")
@@ -10,7 +10,7 @@ def is_date(date_str: str):
     except ValueError:
         return False
 
-def print_files(files_dict: dict[str, Path]) -> None:
+def _print_files(files_dict: dict[str, Path]) -> None:
     if(not files_dict):
         print("Файлы для соединения не найдены")
         return
@@ -32,7 +32,7 @@ def get_latest_files(directory: Path) -> dict[str, Path]:
         # 3. Определяем тип (vk или web)
         prefix = file.name.split("_")[0]
         # 4. Сравниваем строки (ISO даты YYYY-MM-DD отлично сравниваются как строки)
-        if is_date(date_str) and (
+        if _is_date(date_str) and (
             prefix not in latest or date_str > latest[prefix]["date"]
         ):
             latest[prefix] = {"path": file, "date": date_str}
@@ -57,9 +57,8 @@ def main():
     SCRAPPED_DATA_DIR = BASE.joinpath("scrapped_data")
     OUTPUT = SCRAPPED_DATA_DIR.joinpath("merged_latest_knowledge.jsonl")
     files_dict = get_latest_files(SCRAPPED_DATA_DIR)
-    print_files(files_dict)
+    _print_files(files_dict)
     merge_jsonl_files(files_dict.values(), OUTPUT)
-
 
 if __name__ == "__main__":
     main()
