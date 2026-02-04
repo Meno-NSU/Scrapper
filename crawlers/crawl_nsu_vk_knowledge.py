@@ -1,7 +1,6 @@
 import json
 import vk_api
 import os
-import shutil
 from pathlib import Path
 import time
 import datetime
@@ -12,12 +11,12 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 
 
-def get_group_domain(url):
+def _get_group_domain(url):
     """Извлекает domain группы из ссылки"""
     return urlparse(url).path.strip("/")
 
 
-def get_posts(vk: VkApiMethod, domain: str, count: int, offset: int):
+def _get_posts(vk: VkApiMethod, domain: str, count: int, offset: int):
     # Добавляем filter='owner' чтобы получать посты именно от имени группы,
     # а не все подряд (хотя по умолчанию usually 'all').
     response = vk.wall.get(domain=domain, count=count, offset=offset, filter="owner")
@@ -25,7 +24,7 @@ def get_posts(vk: VkApiMethod, domain: str, count: int, offset: int):
     return posts
 
 
-def to_output_dict(post: dict, name: str, link: str) -> dict:
+def _to_output_dict(post: dict, name: str) -> dict:
     result = dict()
     result["url"] = f"https://vk.com/wall{post['owner_id']}_{post['id']}"
     result["name"] = name
@@ -41,11 +40,10 @@ def to_output_dict(post: dict, name: str, link: str) -> dict:
     return result
 
 
-def collect_data(
+def _collect_data(
     vk: VkApiMethod,
     domain: str,
     title: str,
-    link: str,
     out: TextIO,
     batch_size: int = 100,
     cutoff_date: Optional[int] = None,
@@ -60,12 +58,12 @@ def collect_data(
     max_date = None
 
     # Итеративно скачиваем посты, пока они есть и не достигли cutoff_date
-    with tqdm(desc=f"Fetching {title}") as pbar:
+    with tqdm(desc=f"Извлечение данных из группы \"{title}\"") as pbar:
         while True:
             if should_stop:
                 break
 
-            posts = get_posts(vk, domain, count=batch_size, offset=offset)
+            posts = _get_posts(vk, domain, count=batch_size, offset=offset)
 
             # Если постов нет, значит дошли до конца
             if not posts:
@@ -91,7 +89,7 @@ def collect_data(
                     max_date = post_date
 
                 # Сохраняем
-                out_post = to_output_dict(post, title, link)
+                out_post = _to_output_dict(post, title)
                 json_line = json.dumps(out_post, ensure_ascii=False)
 
                 out.write(json_line + "\n")
@@ -123,19 +121,19 @@ def collect_data(
     return min_date, max_date
 
 
-def autorize(token: str | None) -> VkApiMethod:
+def _autorize(token: str | None) -> VkApiMethod:
     vk_session = vk_api.VkApi(token=token)
     vk: VkApiMethod = vk_session.get_api()
     return vk
 
 
-def get_groups(filepath: Path) -> dict:
+def _get_groups(filepath: Path) -> dict:
     with open(filepath, "r", encoding="utf-8") as f:
         groups_dict = json.load(f)
     return groups_dict
 
 
-def save_posts(
+def _save_posts(
     vk: VkApiMethod,
     groups_dict: dict,
     output_filepath: Path,
@@ -147,7 +145,7 @@ def save_posts(
         cutoff_info = f" (с {datetime.datetime.fromtimestamp(cutoff_unix_date)})"
 
     print(
-        f"Найдено групп: {len(groups_dict)}. Начинаем сбор в {output_filepath}{cutoff_info}..."
+        f"Найдено групп: {len(groups_dict)}.\nНачинаем сбор в {output_filepath}{cutoff_info}..."
     )
 
     # Отслеживаем общие минимальную и максимальную дату
@@ -158,15 +156,14 @@ def save_posts(
     # Файл vk_scrapped.jsonl будет содержать актуальные результаты прогона.
     with open(output_filepath, "w", encoding="utf-8") as f_out:
         for title, link in groups_dict.items():
-            domain = get_group_domain(link)
+            domain = _get_group_domain(link)
             print(f"Загрузка: {title}...", end=" ")
 
             try:
-                min_date, max_date = collect_data(
+                min_date, max_date = _collect_data(
                     vk,
                     domain,
                     title,
-                    link,
                     f_out,
                     posts_per_prequest,
                     cutoff_unix_date,
@@ -220,24 +217,24 @@ def crawl_vk_knowledge(
 ):
     # 1. Авторизация
     try:
-        vk = autorize(vk_token)
+        vk = _autorize(vk_token)
     except Exception as e:
         print(f"❌ Ошибка авторизации: {e}")
         return
 
     # 2. Чтение списка групп
     try:
-        groups_dict = get_groups(urls_filepath)
+        groups_dict = _get_groups(urls_filepath)
     except FileNotFoundError:
         print(f"❌ Файл {urls_filepath} не найден.")
         return
 
-    save_posts(vk, groups_dict, output_filepath, cutoff_unix_date, posts_per_prequest)
+    _save_posts(vk, groups_dict, output_filepath, cutoff_unix_date, posts_per_prequest)
 
 
 def main():
     BASE = Path().cwd()
-    RESOURCES_DIR = BASE.joinpath("resources")
+    RESOURCES_DIR = BASE.joinpath("urls")
     SCRAPPED_DATA_DIR = BASE.joinpath("scrapped_data")
 
     # Задаём конфигурацию

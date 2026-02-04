@@ -7,7 +7,7 @@ import warnings
 import time
 import datetime
 
-def extract_urls(urls_fname: Path) -> dict[str, str]:
+def _extract_urls(urls_fname: Path) -> dict[str, str]:
     with urls_fname.open(mode="r", encoding="utf-8", errors="ignore") as fp:
         url_data = json.load(fp)
 
@@ -25,7 +25,7 @@ def extract_urls(urls_fname: Path) -> dict[str, str]:
     print(f"There are {len(url_dict)} documents.")
     return url_dict
 
-def getConfigs():
+def get_configs():
     browser_config = BrowserConfig(verbose=False)
     run_config = CrawlerRunConfig(
         markdown_generator=DefaultMarkdownGenerator(
@@ -48,7 +48,7 @@ async def crawl_web_knowledge(url_fname: Path, output: Path, configs: dict):
     fail_count = 0
 
     # 1. Извлечение urls из json файла
-    url_dict = extract_urls(url_fname)
+    url_dict = _extract_urls(url_fname)
     url_list = sorted(list(url_dict.keys()))
 
     # 2. Сбор данных
@@ -96,7 +96,7 @@ async def crawl_web_knowledge(url_fname: Path, output: Path, configs: dict):
 async def main():
     BASE = Path().cwd()
 
-    RESOURCES_DIR = BASE.joinpath("resources")
+    RESOURCES_DIR = BASE.joinpath("urls")
     SCRAPPED_DATA_DIR = BASE.joinpath("scrapped_data")
     print(f"isdir({RESOURCES_DIR}) = {RESOURCES_DIR.is_dir()}")
     print(f"isdir({SCRAPPED_DATA_DIR}) = {SCRAPPED_DATA_DIR.is_dir()}")
@@ -109,7 +109,7 @@ async def main():
     filename = f"web_scrapped_{current_date}.jsonl"
     output = SCRAPPED_DATA_DIR.joinpath(filename)
 
-    await crawl_web_knowledge(url_fname, output, getConfigs())
+    await crawl_web_knowledge(url_fname, output, get_configs())
 
 if __name__ == "__main__":
     asyncio.run(main())
