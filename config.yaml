@@ -4,5 +4,5 @@ scrapper:
   URLS_DIR: urls
   OUTPUT_DIR: scrapped_data
   CLEAR_BEFORE_CRAWL: false
-  SAVE_TEMP_FILES: false
+  SAVE_TEMP_FILES: true
   

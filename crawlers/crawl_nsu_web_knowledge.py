@@ -22,7 +22,7 @@ def _extract_urls(urls_fname: Path) -> dict[str, str]:
     for doc_url in url_dict:
         url_dict[doc_url] = " ".join(url_dict[doc_url].strip().split()).strip()
 
-    print(f"There are {len(url_dict)} documents.")
+    print(f"Извлечено {len(url_dict)} url")
     return url_dict
 
 def get_configs():
@@ -94,7 +94,7 @@ async def crawl_web_knowledge(url_fname: Path, output: Path, configs: dict):
     print(f"Файл: {output}")
 
 async def main():
-    BASE = Path().cwd()
+    BASE = Path(__file__).resolve().parent.parent
 
     RESOURCES_DIR = BASE.joinpath("urls")
     SCRAPPED_DATA_DIR = BASE.joinpath("scrapped_data")

@@ -233,7 +233,7 @@ def crawl_vk_knowledge(
 
 
 def main():
-    BASE = Path().cwd()
+    BASE = Path(__file__).resolve().parent.parent
     RESOURCES_DIR = BASE.joinpath("urls")
     SCRAPPED_DATA_DIR = BASE.joinpath("scrapped_data")
 

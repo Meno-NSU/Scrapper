@@ -56,7 +56,7 @@ def run_scrapper():
     
     config = default_config["scrapper"] | config["scrapper"]
 
-    BASE = Path().cwd()
+    BASE = Path(__file__).resolve().parent
     URLS_DIR = BASE.joinpath(config['URLS_DIR'])
     OUTPUT_DIR = BASE.joinpath(config['OUTPUT_DIR'])
     
