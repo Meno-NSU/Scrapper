@@ -1,0 +1,8 @@
+scrapper:
+  VK_SERVICE_TOKEN: <in .env>
+  VK_CUTOFF_DATE: 2026-01-01
+  URLS_DIR: urls
+  OUTPUT_DIR: scrapped_data
+  CLEAR_BEFORE_CRAWL: false
+  SAVE_TEMP_FILES: false
+  
