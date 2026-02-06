@@ -8,6 +8,7 @@ import yaml
 from crawlers import crawl_nsu_vk_knowledge as cvk
 from crawlers import crawl_nsu_web_knowledge as cweb
 import merge_knowledge as mk
+import filter_knowledge as fk
 
 def delete_files(files: Iterator[Path]) -> None:
     for file in files:
@@ -69,14 +70,19 @@ def run_scrapper():
     print("Сбор данных с web-источников...")
     asyncio.run(craw_web_data(URLS_DIR, OUTPUT_DIR, config))
 
-    BASE = Path().cwd()
-    OUTPUT = OUTPUT_DIR.joinpath("merged_latest_knowledge.jsonl")
+    merged_knowledge = OUTPUT_DIR.joinpath("merged_latest_knowledge.jsonl")
     files_dict = mk.get_latest_files(OUTPUT_DIR)
 
-    mk.merge_jsonl_files(list(files_dict.values()), OUTPUT)
+    mk.merge_jsonl_files(list(files_dict.values()), merged_knowledge)
+    
+    filtered_output = OUTPUT_DIR.joinpath("filtered_merged_latest_knowledge.jsonl")
+    fk.process(merged_knowledge, filtered_output, fk.get_pipeline())
     if (not config["SAVE_TEMP_FILES"]):
         print("Удаление временных файлов:")
-        delete_files(iter(files_dict.values()))
+        delete_files(iter(list(files_dict.values()) + [merged_knowledge]))
+
+
+
 
 
 
