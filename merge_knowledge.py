@@ -58,7 +58,7 @@ def main():
     OUTPUT = SCRAPPED_DATA_DIR.joinpath("merged_latest_knowledge.jsonl")
     files_dict = get_latest_files(SCRAPPED_DATA_DIR)
     _print_files(files_dict)
-    merge_jsonl_files(files_dict.values(), OUTPUT)
+    merge_jsonl_files(list(files_dict.values()), OUTPUT)
 
 if __name__ == "__main__":
     main()
