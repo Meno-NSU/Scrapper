@@ -27,7 +27,8 @@ def crawl_vk_data(urls_dir: Path, output_dir: Path, config: dict):
     output_file = output_dir.joinpath("vk_scrapped.jsonl")
 
     cutoff_date = None
-    if (config["VK_CUTOFF_DATE"] is not None):
+    if (config["VK_CUTOFF_DATE"] is not None and config["VK_CUTOFF_DATE"] != "None"):
+        print(config["VK_CUTOFF_DATE"])
         cutoff_date = int(datetime.datetime.strptime(str(config["VK_CUTOFF_DATE"]), "%Y-%m-%d").timestamp())
 
     cvk.crawl_vk_knowledge(token, urls_file, output_file, cutoff_date)
@@ -51,9 +52,12 @@ def run_scrapper():
         config = yaml.safe_load(f_config)
         default_config = yaml.safe_load(f_def_config)
     
-    if (config is None or config.get("scrapper", None) is None):
+    if (config is None):
         print("Пропускаем Scrapper")
         return
+    
+    if config.get("scrapper", None) is None:
+        config['scrapper'] = dict()
     
     config = default_config["scrapper"] | config["scrapper"]
 
