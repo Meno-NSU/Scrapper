@@ -72,7 +72,7 @@ def process(input_file: Path, output_file: Path, pipeline: list[Callable]):
 
 
 def main():
-    BASE = Path().cwd()
+    BASE = Path(__file__).resolve().parent
     SCRAPPED_DATA_DIR = BASE.joinpath("scrapped_data")
     INPUT = SCRAPPED_DATA_DIR.joinpath("merged_latest_knowledge.jsonl")
     OUTPUT = SCRAPPED_DATA_DIR.joinpath("filtered_merged_latest_knowledge.jsonl")

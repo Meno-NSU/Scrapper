@@ -53,7 +53,7 @@ def merge_jsonl_files(input_files: list[Path], output_path: Path):
 
 
 def main():
-    BASE = Path().cwd()
+    BASE = Path(__file__).resolve().parent
     SCRAPPED_DATA_DIR = BASE.joinpath("scrapped_data")
     OUTPUT = SCRAPPED_DATA_DIR.joinpath("merged_latest_knowledge.jsonl")
     files_dict = get_latest_files(SCRAPPED_DATA_DIR)
