@@ -43,12 +43,15 @@ async def craw_web_data(urls_dir: Path, output_dir: Path, config: dict):
     await cweb.crawl_web_knowledge(url_fname, output_file, cweb.get_configs())
 
 def run_scrapper():
+    BASE = Path(__file__).resolve().parent
     load_dotenv()
     
     config: dict = dict()
     default_config: dict = dict()
-    with open('config.yaml', 'r') as f_config,\
-         open('default_config.yaml', 'r') as f_def_config:
+    CONFIG_PATH = BASE.joinpath('config.yaml')
+    DEFAULT_CONFIG_PATH = BASE.joinpath('default_config.yaml')
+    with open(CONFIG_PATH, 'r') as f_config,\
+         open(DEFAULT_CONFIG_PATH, 'r') as f_def_config:
         config = yaml.safe_load(f_config)
         default_config = yaml.safe_load(f_def_config)
     
@@ -61,7 +64,6 @@ def run_scrapper():
     
     config = default_config["scrapper"] | config["scrapper"]
 
-    BASE = Path(__file__).resolve().parent
     URLS_DIR = BASE.joinpath(config['URLS_DIR'])
     OUTPUT_DIR = BASE.joinpath(config['OUTPUT_DIR'])
     
