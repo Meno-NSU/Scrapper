@@ -68,7 +68,7 @@ def process(input_file: Path, output_file: Path, pipeline: list[Callable]):
                 json_line = json.dumps(item, ensure_ascii=False)
                 f_out.write(json_line + "\n")
 
-    print(f"Осталось {filtered_count} из {total_lines} записей")
+    print(f"После фильтрации осталось {filtered_count} из {total_lines} записей")
 
 
 def main():

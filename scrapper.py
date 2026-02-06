@@ -51,7 +51,7 @@ def run_scrapper():
         config = yaml.safe_load(f_config)
         default_config = yaml.safe_load(f_def_config)
     
-    if (config.get("scrapper", None) is None):
+    if (config is None or config.get("scrapper", None) is None):
         print("Пропускаем Scrapper")
         return
     
