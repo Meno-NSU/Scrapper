@@ -1,6 +1,5 @@
 from pathlib import Path
 from datetime import datetime
-from pprint import pprint
 
 def _is_date(date_str: str):
     try:
