@@ -1,4 +1,5 @@
 import json
+import logging
 import vk_api
 import os
 from pathlib import Path
@@ -9,6 +10,12 @@ from vk_api.vk_api import VkApiMethod
 from typing import TextIO, Optional
 from tqdm import tqdm
 from dotenv import load_dotenv
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 def _get_group_domain(url):
@@ -58,7 +65,7 @@ def _collect_data(
     max_date = None
 
     # Итеративно скачиваем посты, пока они есть и не достигли cutoff_date
-    with tqdm(desc=f"Извлечение данных из группы \"{title}\"") as pbar:
+    with tqdm(desc=f'Извлечение данных из группы "{title}"') as pbar:
         while True:
             if should_stop:
                 break
@@ -116,7 +123,9 @@ def _collect_data(
         else "N/A"
     )
 
-    print(f"✅ Сохранено {saved_count} постов. Диапазон дат: {min_str} - {max_str}")
+    logger.info(
+        f"✅ Сохранено {saved_count} постов. Диапазон дат: {min_str} - {max_str}"
+    )
 
     return min_date, max_date
 
@@ -144,9 +153,8 @@ def _save_posts(
     if cutoff_unix_date is not None:
         cutoff_info = f" (с {datetime.datetime.fromtimestamp(cutoff_unix_date)})"
 
-    print(
-        f"Найдено групп: {len(groups_dict)}.\nНачинаем сбор в {output_filepath}{cutoff_info}..."
-    )
+    logger.info(f"Найдено групп: {len(groups_dict)}")
+    logger.info(f"Начинаем сбор в {output_filepath}{cutoff_info}...")
 
     # Отслеживаем общие минимальную и максимальную дату
     global_min_date = None
@@ -157,7 +165,7 @@ def _save_posts(
     with open(output_filepath, "w", encoding="utf-8") as f_out:
         for title, link in groups_dict.items():
             domain = _get_group_domain(link)
-            print(f"Загрузка: {title}...", end=" ")
+            logger.info(f"Извлечение данных из группы {title}...")
 
             try:
                 min_date, max_date = _collect_data(
@@ -179,9 +187,9 @@ def _save_posts(
                         global_max_date = max_date
 
             except vk_api.exceptions.ApiError as e:
-                print(f"\n⚠️ Ошибка API ({title}): {e}")
+                logger.info(f"\n⚠️ Ошибка API ({title}): {e}")
             except Exception as e:
-                print(f"\n⚠️ Ошибка ({title}): {e}")
+                logger.info(f"\n⚠️ Ошибка ({title}): {e}")
 
     min_date_str = "nan"
     if global_min_date is not None:
@@ -204,8 +212,8 @@ def _save_posts(
     new_path = output_filepath.parent / new_name
 
     output_filepath.rename(new_path)
-    print(f"\n🎉 Готово! Данные сохранены в {output_filepath}")
-    print(f"   Диапазон: с {min_date_str} по {max_date_str}")
+    logger.info(f"🎉 Готово! Данные сохранены в {output_filepath}")
+    logger.info(f"   Диапазон: с {min_date_str} по {max_date_str}")
 
 
 def crawl_vk_knowledge(
@@ -219,14 +227,14 @@ def crawl_vk_knowledge(
     try:
         vk = _autorize(vk_token)
     except Exception as e:
-        print(f"❌ Ошибка авторизации: {e}")
+        logger.info(f"❌ Ошибка авторизации: {e}")
         return
 
     # 2. Чтение списка групп
     try:
         groups_dict = _get_groups(urls_filepath)
     except FileNotFoundError:
-        print(f"❌ Файл {urls_filepath} не найден.")
+        logger.info(f"❌ Файл {urls_filepath} не найден.")
         return
 
     _save_posts(vk, groups_dict, output_filepath, cutoff_unix_date, posts_per_prequest)
@@ -257,7 +265,7 @@ def main():
     # None = скраппить все посты за всё время
     # Пример: 1609459200 для 2021-01-01
     # Можно использовать: int(datetime.datetime(2020, 1, 1).timestamp())
-    CUTOFF_DATE = None # int(datetime.datetime(2026, 1, 1).timestamp())
+    CUTOFF_DATE = None  # int(datetime.datetime(2026, 1, 1).timestamp())
 
     # Количество постов для скачивания (максимум 100 за один запрос)
     POSTS_PER_REQUEST = 100

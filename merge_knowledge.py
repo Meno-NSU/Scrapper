@@ -1,5 +1,13 @@
+import logging
 from pathlib import Path
 from datetime import datetime
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 
 def _is_date(date_str: str):
     try:
@@ -11,12 +19,12 @@ def _is_date(date_str: str):
 
 def _print_files(files_dict: dict[str, Path]) -> None:
     if(not files_dict):
-        print("Файлы для соединения не найдены")
+        logger.info("Файлы для соединения не найдены")
         return
 
-    print("Сливаем данные из файлов:")
+    logger.info("Сливаем данные из файлов:")
     for resource_name, path in files_dict.items():
-        print(f"Ресурс: {resource_name}, путь до файла: {path}")
+        logger.info(f"Ресурс: {resource_name}, путь до файла: {path}")
 
 def get_latest_files(directory: Path) -> dict[str, Path]:
     latest = {}
@@ -48,7 +56,7 @@ def merge_jsonl_files(input_files: list[Path], output_path: Path):
                     if line.strip():
                         outfile.write(line.rstrip() + "\n")
 
-    print(f"✅ Успешно смерджено {len(input_files)} файлов в: {output_path}")
+    logger.info(f"✅ Успешно смерджено {len(input_files)} файлов в: {output_path}")
 
 
 def main():

@@ -1,8 +1,16 @@
 import json
+import logging
 from pathlib import Path
 from collections.abc import Callable
 from tqdm import tqdm
 import re
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 
 def _delete_empty_content(item: dict) -> dict | None:
     if not item["content"]:
@@ -39,7 +47,7 @@ def get_pipeline() -> list[Callable]:
 
 
 def process(input_file: Path, output_file: Path, pipeline: list[Callable]):
-    print("Подсчет строк...")
+    logger.info("Подсчет строк...")
     with open(input_file, "r", encoding="utf-8") as f:
         total_lines = sum(1 for _ in f)
 
@@ -48,7 +56,7 @@ def process(input_file: Path, output_file: Path, pipeline: list[Callable]):
         open(input_file, "r", encoding="utf-8") as f_in,
         open(output_file, "w", encoding="utf-8") as f_out,
     ):
-        for line in tqdm(f_in, total=total_lines, desc="Обработка JSONL", unit="lines"):
+        for line in tqdm(f_in, total=total_lines, desc="Фильтрация", unit="lines"):
             line = line.strip()
             if not line:
                 continue
@@ -68,7 +76,7 @@ def process(input_file: Path, output_file: Path, pipeline: list[Callable]):
                 json_line = json.dumps(item, ensure_ascii=False)
                 f_out.write(json_line + "\n")
 
-    print(f"После фильтрации осталось {filtered_count} из {total_lines} записей")
+    logger.info(f"После фильтрации осталось {filtered_count} из {total_lines} записей")
 
 
 def main():

@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 import asyncio
 from crawl4ai import *
@@ -6,6 +7,12 @@ from tqdm import tqdm
 import warnings
 import time
 import datetime
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 def _extract_urls(urls_fname: Path) -> dict[str, str]:
     with urls_fname.open(mode="r", encoding="utf-8", errors="ignore") as fp:
@@ -22,7 +29,7 @@ def _extract_urls(urls_fname: Path) -> dict[str, str]:
     for doc_url in url_dict:
         url_dict[doc_url] = " ".join(url_dict[doc_url].strip().split()).strip()
 
-    print(f"Извлечено {len(url_dict)} url")
+    logger.info(f"Извлечено {len(url_dict)} url")
     return url_dict
 
 def get_configs():
@@ -54,7 +61,7 @@ async def crawl_web_knowledge(url_fname: Path, output: Path, configs: dict):
     # 2. Сбор данных
     with open(output, mode="w", encoding="utf-8") as fp:
         async with AsyncWebCrawler(config=configs["browser"]) as crawler:
-            for doc_url in tqdm(url_list):
+            for doc_url in tqdm(url_list, desc=f"Сбор данных с Web источников"):
                 try:
                     result = await crawler.arun(url=doc_url, config=configs["run"])
 
@@ -79,30 +86,30 @@ async def crawl_web_knowledge(url_fname: Path, output: Path, configs: dict):
                         )
                 except Exception as e:
                     fail_count += 1
-                    print(f"EXCEPTION {doc_url}: {e}")
+                    logger.info(f"EXCEPTION {doc_url}: {e}")
 
     # 3. Итоговый отчет
-    print("-" * 40)
-    print(f"🎉 Готово!")
-    print(f"Всего URLs: {len(url_list)}")
-    print(f"✅ Успешно: {success_count}")
+    logger.info("-" * 40)
+    logger.info(f"🎉 Готово!")
+    logger.info(f"Всего URLs: {len(url_list)}")
+    logger.info(f"✅ Успешно: {success_count}")
     if fail_count > 0:
-        print(f"⚠️ Ошибок: {fail_count} (см. предупреждения выше)")
+        logger.info(f"⚠️ Ошибок: {fail_count} (см. предупреждения выше)")
     else:
-        print(f"Ошибок: 0")
+        logger.info(f"Ошибок: 0")
         
-    print(f"Файл: {output}")
+    logger.info(f"Файл: {output}")
 
 async def main():
     BASE = Path(__file__).resolve().parent.parent
 
     RESOURCES_DIR = BASE.joinpath("urls")
     SCRAPPED_DATA_DIR = BASE.joinpath("scrapped_data")
-    print(f"isdir({RESOURCES_DIR}) = {RESOURCES_DIR.is_dir()}")
-    print(f"isdir({SCRAPPED_DATA_DIR}) = {SCRAPPED_DATA_DIR.is_dir()}")
+    logger.info(f"isdir({RESOURCES_DIR}) = {RESOURCES_DIR.is_dir()}")
+    logger.info(f"isdir({SCRAPPED_DATA_DIR}) = {SCRAPPED_DATA_DIR.is_dir()}")
 
     url_fname = RESOURCES_DIR.joinpath("web_urls.json")
-    print(f"isfile({url_fname}) = {url_fname.is_file()}")
+    logger.info(f"isfile({url_fname}) = {url_fname.is_file()}")
 
     # 1. Формируем имя файла с текущей датой
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")

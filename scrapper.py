@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import logging
 from pathlib import Path
 from typing import Iterator
 from dotenv import load_dotenv
@@ -10,10 +11,17 @@ from crawlers import crawl_nsu_web_knowledge as cweb
 import merge_knowledge as mk
 import filter_knowledge as fk
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
+logger = logging.getLogger("scrapper")
+
+
 def delete_files(files: Iterator[Path]) -> None:
     for file in files:
         file.unlink()
-        print(f"\tУдален: {file}")
+        logger.info(f"\tУдален: {file}")
 
 def _clear_data_before_crawling(directory: Path) -> None:
     delete_files(directory.rglob('*.jsonl'))
@@ -28,7 +36,6 @@ def crawl_vk_data(urls_dir: Path, output_dir: Path, config: dict):
 
     cutoff_date = None
     if (config["VK_CUTOFF_DATE"] is not None and config["VK_CUTOFF_DATE"] != "None"):
-        print(config["VK_CUTOFF_DATE"])
         cutoff_date = int(datetime.datetime.strptime(str(config["VK_CUTOFF_DATE"]), "%Y-%m-%d").timestamp())
 
     cvk.crawl_vk_knowledge(token, urls_file, output_file, cutoff_date)
@@ -56,7 +63,7 @@ def run_scrapper():
         default_config = yaml.safe_load(f_def_config)
     
     if (config is None):
-        print("Пропускаем Scrapper")
+        logger.info("Пропускаем Scrapper")
         return
     
     if config.get("scrapper", None) is None:
@@ -68,12 +75,12 @@ def run_scrapper():
     OUTPUT_DIR = BASE.joinpath(config['OUTPUT_DIR'])
     
     if (config["CLEAR_BEFORE_CRAWL"]):
-        print(f"Очищение {OUTPUT_DIR} от .jsonl перед сбором данных")
+        logger.info(f"Очищение {OUTPUT_DIR} от .jsonl перед сбором данных")
         _clear_data_before_crawling(OUTPUT_DIR)
 
-    print("Сбор данных с ВК...")
+    logger.info("Сбор данных с ВК...")
     crawl_vk_data(URLS_DIR, OUTPUT_DIR, config)
-    print("Сбор данных с web-источников...")
+    logger.info("Сбор данных с web-источников...")
     asyncio.run(craw_web_data(URLS_DIR, OUTPUT_DIR, config))
 
     merged_knowledge = OUTPUT_DIR.joinpath("merged_latest_knowledge.jsonl")
@@ -84,12 +91,8 @@ def run_scrapper():
     filtered_output = OUTPUT_DIR.joinpath("filtered_merged_latest_knowledge.jsonl")
     fk.process(merged_knowledge, filtered_output, fk.get_pipeline())
     if (not config["SAVE_TEMP_FILES"]):
-        print("Удаление временных файлов:")
+        logger.info("Удаление временных файлов:")
         delete_files(iter(list(files_dict.values()) + [merged_knowledge]))
-
-
-
-
 
 
 def main():
