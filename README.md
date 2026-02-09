@@ -7,9 +7,7 @@
 1. **ВКонтакте** - посты из официальной группы университета
 2. **Веб-сайт НГУ** - образовательные страницы, программы, информацию о факультетах
 
-Собранные данные сохраняются в соответствующих файлах в формате `JSONL` для последующей обработки и анализа.
-
-После сбора данных происходит объединение двух jsonl файлов в единный jsonl
+После сбора данных в соответствующих jsonl файлах, скрипт объединяет их и фильтрует записи. Результат будет находиться в filtered_merged_latest_knowledge.jsonl
 
 ---
 
@@ -17,17 +15,24 @@
 
 ```
 Scrapper/
-├── crawl_nsu_vk_knowledge.py                   # Скраппер группы ВКонтакте (берет ссылки из vk_urls.json, генерирует vk_scrapped_<date_1>_to_<date_2>.jsonl)
-├── crawl_nsu_web_knowledge.py                  # Скраппер веб-сайта (берет ссылки из web_urls.json, генерирует web_scrapped_<date>.jsonl)
-├── merge_knowledge.py                          # Скрипт для объединения последних собранных данных с разных источников (если сохранено несколько файлов vk_scrapped/web_scrapped, то берём те, у которых date_2/date новее)
-├── nsu_urls_spider.py                          # Паук для поиска URLs на сайте НГУ (использовался для получения части ссылок из web_urls.json)
-├── resources/
+├── crawlers/
+│   ├── crawl_nsu_vk_knowledge.py               # Скраппер группы ВКонтакте (берет ссылки из vk_urls.json, генерирует vk_scrapped_<date_1>_to_<date_2>.jsonl)
+│   └── crawl_nsu_web_knowledge.py              # Скраппер веб-сайта (берет ссылки из web_urls.json, генерирует web_scrapped_<date>.jsonl)
+├── scrapped_data/
+│   ├── vk_scrapped_<date_1>_to_<date_2>.jsonl  # Собранные посты из ВК в период с <date_1> по <date_2>
+│   ├── web_scrapped_<date>.jsonl               # Собранный контент с веб-сайта c датой сбора <date>
+│   ├── merged_latest_knowledge.jsonl           # Объединение vk_scrpped и web_scrapped (Если есть несколько vk_scrapped/web_scrapped, то берём те, у которых date_2/date новее)
+│   └── filtered_merged_latest_knowledge.jsonl  # Записи из merged_latest_knowledge.jsonl, прошедшие фильтрацию и трансформацию
+├── urls/
 │   ├── vk_urls.json                            # Список ВК групп для сбора информации
 │   └── web_urls.json                           # Список веб-страниц НГУ для сбора информации
-└── scrapped_data/
-    ├── vk_scrapped_<date_1>_to_<date_2>.jsonl  # Собранные посты из ВК в период с <date_1> по <date_2>
-    ├── web_scrapped_<date>.jsonl               # Собранный контент с веб-сайта c датой сбора <date>
-    └── merged_latest_knowledge.jsonl           # Объединение vk_scrpped и web_scrapped (Если есть несколько vk_scrapped/web_scrapped, то берём те, у которых date_2/date новее)
+├── .env.sample                                 # Пример .env, значения которых надо будет задать
+├── .env                                        # Список используемых переменных окружений, используемых scrapper-ом
+├── config.yaml                                 # Конфигурация для скраппера, которую задаёт пользователь
+├── default_config.yaml                         # Значение каждого параметра в конфигурации по умолчанию (берётся значение, если пользователь не указал значение в config.yaml)
+├── filter_knowledge.py                         # Скрипт для фильтрации и трансформация собранных данных
+├── merge_knowledge.py                          # Скрипт для объединения последних собранных данных с разных источников 
+└── nsu_urls_spider.py                          # Паук для поиска URLs на сайте НГУ (использовался для получения части ссылок из web_urls.json)
 ```
 
 ## Установка
@@ -61,3 +66,51 @@ Scrapper/
 
    Отредактируйте `.env` и добавьте необходимые переменные:
    - `VK_SERVICE_TOKEN` - сервисный токен VK API (получите на https://vk.com/dev)
+
+## Запуск
+Обязательно добавить в PYTHONPATH root директорию проекта:
+```bash
+export PYTHONPATH="${PYTHONPATH}:/path/to/Scrapper"
+```
+
+1. **С помощью контейнера**
+```bash
+docker compose up --build
+```
+2. **Локально**
+```bash
+python scrapper.py
+```
+
+## Конфиги
+
+Если хотите пропустить какой-то из этапов, тогда в config.yaml пропускайте название этапа, например:
+
+1. scrapper со всеми значениями по умолчанию:
+```yaml
+scrapper:
+```
+2. scrapper c переопределёнными значениями:
+```yaml
+scrapper:
+  VK_CUTOFF_DATE: 2026-01-01
+```
+3. Пропускаем этап scrapper:
+```yaml
+# scrapper: - пропускаем название
+
+... # Другие названия и конфиги для этапов
+```
+
+
+### Scrapper
++ `VK_SERVICE_TOKEN` - токен вк, с помощью которого можно использовать API
+   + Значение указывается в .env файле 
++ `VK_CUTOFF_DATE` - дата, раньше которой посты вк собираться не будут (Формат `YYYY-MM-DD`)
+   + Если значение None - собираем все посты с групп
++ `URLS_DIR` - название директории со списком ресурсов
++ `OUTPUT_DIR` - название директории в проекте, куда будут сохраняться результат работы
++ `CLEAR_BEFORE_CRAWL` - очищение `OUTPUT_DIR` от уже имеющихся jsonl файлов перед работой scrapper
+   + Возможные значение: true или false
++ `SAVE_TEMP_FILES` - сохраненеие промежуточных файлов (vk_scrapped, web_scrapped, merged_latest_knowledge)
+   + Возможные значение: true или false

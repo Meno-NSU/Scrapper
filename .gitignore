@@ -46,6 +46,7 @@ env/
 uv.lock
 
 # Project-specific
+crawl4ai/
 scrapped_data/
 meno_database/
 .scrapy/
@@ -54,6 +55,3 @@ meno_database/
 # OS
 .DS_Store
 Thumbs.db
-
-# Libs
-crawl4ai/

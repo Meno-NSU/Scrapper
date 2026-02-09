@@ -7,7 +7,12 @@ import warnings
 import time
 import datetime
 
-def extract_urls(urls_fname: Path) -> dict[str, str]:
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+def _extract_urls(urls_fname: Path) -> dict[str, str]:
     with urls_fname.open(mode="r", encoding="utf-8", errors="ignore") as fp:
         url_data = json.load(fp)
 
@@ -22,10 +27,11 @@ def extract_urls(urls_fname: Path) -> dict[str, str]:
     for doc_url in url_dict:
         url_dict[doc_url] = " ".join(url_dict[doc_url].strip().split()).strip()
 
-    print(f"There are {len(url_dict)} documents.")
+    logger.info(f"Извлечено {len(url_dict)} url")
     return url_dict
 
-def getConfigs():
+
+def get_configs():
     browser_config = BrowserConfig(verbose=False)
     run_config = CrawlerRunConfig(
         markdown_generator=DefaultMarkdownGenerator(
@@ -48,13 +54,13 @@ async def crawl_web_knowledge(url_fname: Path, output: Path, configs: dict):
     fail_count = 0
 
     # 1. Извлечение urls из json файла
-    url_dict = extract_urls(url_fname)
+    url_dict = _extract_urls(url_fname)
     url_list = sorted(list(url_dict.keys()))
 
     # 2. Сбор данных
     with open(output, mode="w", encoding="utf-8") as fp:
         async with AsyncWebCrawler(config=configs["browser"]) as crawler:
-            for doc_url in tqdm(url_list):
+            for doc_url in tqdm(url_list, desc=f"Сбор данных с Web источников"):
                 try:
                     result = await crawler.arun(url=doc_url, config=configs["run"])
 
@@ -79,37 +85,39 @@ async def crawl_web_knowledge(url_fname: Path, output: Path, configs: dict):
                         )
                 except Exception as e:
                     fail_count += 1
-                    print(f"EXCEPTION {doc_url}: {e}")
+                    logger.info(f"EXCEPTION {doc_url}: {e}")
 
     # 3. Итоговый отчет
-    print("-" * 40)
-    print(f"🎉 Готово!")
-    print(f"Всего URLs: {len(url_list)}")
-    print(f"✅ Успешно: {success_count}")
+    logger.info("-" * 40)
+    logger.info(f"🎉 Готово!")
+    logger.info(f"Всего URLs: {len(url_list)}")
+    logger.info(f"✅ Успешно: {success_count}")
     if fail_count > 0:
-        print(f"⚠️ Ошибок: {fail_count} (см. предупреждения выше)")
+        logger.info(f"⚠️ Ошибок: {fail_count} (см. предупреждения выше)")
     else:
-        print(f"Ошибок: 0")
-        
-    print(f"Файл: {output}")
+        logger.info(f"Ошибок: 0")
+
+    logger.info(f"Файл: {output}")
+
 
 async def main():
-    BASE = Path().cwd()
+    BASE = Path(__file__).resolve().parent.parent
 
-    RESOURCES_DIR = BASE.joinpath("resources")
+    RESOURCES_DIR = BASE.joinpath("urls")
     SCRAPPED_DATA_DIR = BASE.joinpath("scrapped_data")
-    print(f"isdir({RESOURCES_DIR}) = {RESOURCES_DIR.is_dir()}")
-    print(f"isdir({SCRAPPED_DATA_DIR}) = {SCRAPPED_DATA_DIR.is_dir()}")
+    logger.info(f"isdir({RESOURCES_DIR}) = {RESOURCES_DIR.is_dir()}")
+    logger.info(f"isdir({SCRAPPED_DATA_DIR}) = {SCRAPPED_DATA_DIR.is_dir()}")
 
     url_fname = RESOURCES_DIR.joinpath("web_urls.json")
-    print(f"isfile({url_fname}) = {url_fname.is_file()}")
+    logger.info(f"isfile({url_fname}) = {url_fname.is_file()}")
 
     # 1. Формируем имя файла с текущей датой
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     filename = f"web_scrapped_{current_date}.jsonl"
     output = SCRAPPED_DATA_DIR.joinpath(filename)
 
-    await crawl_web_knowledge(url_fname, output, getConfigs())
+    await crawl_web_knowledge(url_fname, output, get_configs())
+
 
 if __name__ == "__main__":
     asyncio.run(main())
