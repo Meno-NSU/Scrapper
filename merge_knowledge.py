@@ -1,12 +1,9 @@
-import logging
 from pathlib import Path
 from datetime import datetime
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
-)
-logger = logging.getLogger(__name__)
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def _is_date(date_str: str):
@@ -17,14 +14,16 @@ def _is_date(date_str: str):
     except ValueError:
         return False
 
+
 def _print_files(files_dict: dict[str, Path]) -> None:
-    if(not files_dict):
+    if not files_dict:
         logger.info("Файлы для соединения не найдены")
         return
 
     logger.info("Сливаем данные из файлов:")
     for resource_name, path in files_dict.items():
         logger.info(f"Ресурс: {resource_name}, путь до файла: {path}")
+
 
 def get_latest_files(directory: Path) -> dict[str, Path]:
     latest = {}
@@ -66,6 +65,7 @@ def main():
     files_dict = get_latest_files(SCRAPPED_DATA_DIR)
     _print_files(files_dict)
     merge_jsonl_files(list(files_dict.values()), OUTPUT)
+
 
 if __name__ == "__main__":
     main()

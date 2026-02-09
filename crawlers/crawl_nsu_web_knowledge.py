@@ -1,5 +1,4 @@
 import json
-import logging
 from pathlib import Path
 import asyncio
 from crawl4ai import *
@@ -8,11 +7,10 @@ import warnings
 import time
 import datetime
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-)
-logger = logging.getLogger(__name__)
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def _extract_urls(urls_fname: Path) -> dict[str, str]:
     with urls_fname.open(mode="r", encoding="utf-8", errors="ignore") as fp:
@@ -31,6 +29,7 @@ def _extract_urls(urls_fname: Path) -> dict[str, str]:
 
     logger.info(f"Извлечено {len(url_dict)} url")
     return url_dict
+
 
 def get_configs():
     browser_config = BrowserConfig(verbose=False)
@@ -97,8 +96,9 @@ async def crawl_web_knowledge(url_fname: Path, output: Path, configs: dict):
         logger.info(f"⚠️ Ошибок: {fail_count} (см. предупреждения выше)")
     else:
         logger.info(f"Ошибок: 0")
-        
+
     logger.info(f"Файл: {output}")
+
 
 async def main():
     BASE = Path(__file__).resolve().parent.parent
@@ -117,6 +117,7 @@ async def main():
     output = SCRAPPED_DATA_DIR.joinpath(filename)
 
     await crawl_web_knowledge(url_fname, output, get_configs())
+
 
 if __name__ == "__main__":
     asyncio.run(main())

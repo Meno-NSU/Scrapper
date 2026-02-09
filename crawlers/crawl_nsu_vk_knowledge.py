@@ -1,5 +1,4 @@
 import json
-import logging
 import vk_api
 import os
 from pathlib import Path
@@ -11,11 +10,9 @@ from typing import TextIO, Optional
 from tqdm import tqdm
 from dotenv import load_dotenv
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-)
-logger = logging.getLogger(__name__)
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def _get_group_domain(url):

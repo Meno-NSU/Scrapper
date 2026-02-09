@@ -68,6 +68,10 @@ Scrapper/
    - `VK_SERVICE_TOKEN` - сервисный токен VK API (получите на https://vk.com/dev)
 
 ## Запуск
+Обязательно добавить в PYTHONPATH root директорию проекта:
+```bash
+export PYTHONPATH="${PYTHONPATH}:/path/to/Scrapper"
+```
 
 1. **С помощью контейнера**
 ```bash
