@@ -52,6 +52,7 @@ USER nonroot
 
 # Use `/app` as the working directory
 WORKDIR /app
+ENV PYTHONPATH=/app
 
 RUN playwright install chromium
 
