@@ -47,7 +47,9 @@ uv.lock
 
 # Project-specific
 crawl4ai/
-scrapped_data/
+scrapped_data/vk_*
+scrapped_data/web_*
+scrapped_data/merged_latest_knowledge.jsonl
 meno_database/
 .scrapy/
 *.log
