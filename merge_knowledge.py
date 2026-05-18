@@ -9,7 +9,7 @@ logger = get_logger(__name__)
 def _is_date(date_str: str):
     try:
         # Указываем формат, который мы ожидаем (ГГГГ-ММ-ДД)
-        datetime.strptime(date_str, "%Y-%m-%d")
+        datetime.strptime(date_str, "%Y%m%d")
         return True
     except ValueError:
         return False
@@ -29,15 +29,15 @@ def get_latest_files(directory: Path) -> dict[str, Path]:
     latest = {}
 
     for file in directory.glob("*.jsonl"):
-        # 1. Разбиваем имя по '_' и берем последний кусок: '2026-01-27.jsonl'
+        # 1. Разбиваем имя по '_' и берем последний кусок: '20260127.jsonl'
         last_part = file.name.split("_")[-1]
 
-        # 2. Отрезаем '.jsonl', получаем чистую дату: '2026-01-27'
+        # 2. Отрезаем '.jsonl', получаем чистую дату: '20260127'
         date_str = last_part.replace(".jsonl", "")
 
         # 3. Определяем тип (vk или web)
         prefix = file.name.split("_")[0]
-        # 4. Сравниваем строки (ISO даты YYYY-MM-DD отлично сравниваются как строки)
+        # 4. Сравниваем строки (ISO даты YYYYMMDD отлично сравниваются как строки)
         if _is_date(date_str) and (
             prefix not in latest or date_str > latest[prefix]["date"]
         ):

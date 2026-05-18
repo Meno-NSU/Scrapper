@@ -1,12 +1,14 @@
 import json
-import vk_api
+from utils.dict_rw import DictWriter
 import os
 from pathlib import Path
 import time
 import datetime
 from urllib.parse import urlparse
+from utils.jsonl_rw import JsonlWriter
+import vk_api
 from vk_api.vk_api import VkApiMethod
-from typing import TextIO, Optional
+from typing import Optional
 from tqdm import tqdm
 from dotenv import load_dotenv
 
@@ -48,7 +50,7 @@ def _collect_data(
     vk: VkApiMethod,
     domain: str,
     title: str,
-    out: TextIO,
+    out: DictWriter,
     batch_size: int = 100,
     cutoff_date: Optional[int] = None,
 ) -> tuple[Optional[int], Optional[int]]:
@@ -63,10 +65,7 @@ def _collect_data(
 
     # Итеративно скачиваем посты, пока они есть и не достигли cutoff_date
     with tqdm(desc=f'Извлечение данных из группы "{title}"') as pbar:
-        while True:
-            if should_stop:
-                break
-
+        while not should_stop:
             posts = _get_posts(vk, domain, count=batch_size, offset=offset)
 
             # Если постов нет, значит дошли до конца
@@ -77,16 +76,15 @@ def _collect_data(
                 post_date = post.get("date")
                 is_pinned = post.get("is_pinned", 0) == 1
 
-                # Важно: закрепленный пост (pinned) может быть старым.
-                # Мы его сохраняем, но НЕ прерываем сбор, если он старше cutoff_date.
-                # Прерываем только на ОБЫЧНЫХ постах (хронологических).
-                if not is_pinned:
-                    # Проверяем, не старше ли пост, чем cutoff_date
-                    if cutoff_date is not None and post_date < cutoff_date:
-                        should_stop = True
-                        break  # Break inner loop
+                if is_pinned:
+                    continue
 
-                # Обновляем даты (включая pinned в статистике)
+                # Проверяем, не старше ли пост, чем cutoff_date
+                if cutoff_date is not None and post_date < cutoff_date:
+                    should_stop = True
+                    break  # Break inner loop
+
+                # Обновляем даты
                 if min_date is None or post_date < min_date:
                     min_date = post_date
                 if max_date is None or post_date > max_date:
@@ -94,13 +92,9 @@ def _collect_data(
 
                 # Сохраняем
                 out_post = _to_output_dict(post, title)
-                json_line = json.dumps(out_post, ensure_ascii=False)
+                out.write_dict(out_post)
 
-                out.write(json_line + "\n")
                 saved_count += 1
-
-            # Принудительно сбрасываем буфер на диск
-            out.flush()
 
             offset += len(posts)
             pbar.update(len(posts))
@@ -133,7 +127,7 @@ def _autorize(token: str | None) -> VkApiMethod:
     return vk
 
 
-def _get_groups(filepath: Path) -> dict:
+def extract_groups(filepath: Path) -> dict:
     with open(filepath, "r", encoding="utf-8") as f:
         groups_dict = json.load(f)
     return groups_dict
@@ -142,16 +136,12 @@ def _get_groups(filepath: Path) -> dict:
 def _save_posts(
     vk: VkApiMethod,
     groups_dict: dict,
-    output_filepath: Path,
+    out: DictWriter,
     cutoff_unix_date: int | None = None,
     posts_per_prequest: int = 100,
 ):
-    cutoff_info = ""
-    if cutoff_unix_date is not None:
-        cutoff_info = f" (с {datetime.datetime.fromtimestamp(cutoff_unix_date)})"
-
     logger.info(f"Найдено групп: {len(groups_dict)}")
-    logger.info(f"Начинаем сбор в {output_filepath}{cutoff_info}...")
+    logger.info(f"Начинаем сбор постов...")
 
     # Отслеживаем общие минимальную и максимальную дату
     global_min_date = None
@@ -159,82 +149,68 @@ def _save_posts(
 
     # Используем 'w' для перезаписи файла при новом запуске.
     # Файл vk_scrapped.jsonl будет содержать актуальные результаты прогона.
-    with open(output_filepath, "w", encoding="utf-8") as f_out:
-        for title, link in groups_dict.items():
-            domain = _get_group_domain(link)
-            logger.info(f"Извлечение данных из группы {title}...")
+    for title, link in groups_dict.items():
+        domain = _get_group_domain(link)
+        logger.info(f"Извлечение данных из группы {title}...")
 
-            try:
-                min_date, max_date = _collect_data(
-                    vk,
-                    domain,
-                    title,
-                    f_out,
-                    posts_per_prequest,
-                    cutoff_unix_date,
-                )
+        try:
+            min_date, max_date = _collect_data(
+                vk,
+                domain,
+                title,
+                out,
+                posts_per_prequest,
+                cutoff_unix_date,
+            )
 
-                # Обновляем глобальные даты
-                if min_date is not None:
-                    if global_min_date is None or min_date < global_min_date:
-                        global_min_date = min_date
+            # Обновляем глобальные даты
+            if min_date is not None:
+                if global_min_date is None or min_date < global_min_date:
+                    global_min_date = min_date
 
-                if max_date is not None:
-                    if global_max_date is None or max_date > global_max_date:
-                        global_max_date = max_date
+            if max_date is not None:
+                if global_max_date is None or max_date > global_max_date:
+                    global_max_date = max_date
 
-            except vk_api.exceptions.ApiError as e:
-                logger.info(f"\n⚠️ Ошибка API ({title}): {e}")
-            except Exception as e:
-                logger.info(f"\n⚠️ Ошибка ({title}): {e}")
+        except vk_api.exceptions.ApiError as e:
+            logger.info(f"\n⚠️ Ошибка API ({title}): {e}")
+        except Exception as e:
+            logger.info(f"\n⚠️ Ошибка ({title}): {e}")
 
     min_date_str = "nan"
     if global_min_date is not None:
         min_date_str = datetime.datetime.fromtimestamp(global_min_date).strftime(
-            "%Y-%m-%d"
+            "%Y%m%d"
         )
 
     max_date_str = "nan"
     if global_max_date is not None:
         max_date_str = datetime.datetime.fromtimestamp(global_max_date).strftime(
-            "%Y-%m-%d"
+            "%Y%m%d"
         )
 
     # Формируем имя с датами
-    new_name = (
-        output_filepath.stem
-        + f"_{min_date_str}_to_{max_date_str}"
-        + output_filepath.suffix
-    )
-    new_path = output_filepath.parent / new_name
+    out.save_kv("min_date", min_date_str)
+    out.save_kv("max_date", max_date_str)
 
-    output_filepath.rename(new_path)
-    logger.info(f"🎉 Готово! Данные сохранены в {output_filepath}")
+    logger.info("🎉 Готово! Данные сохранены")
     logger.info(f"   Диапазон: с {min_date_str} по {max_date_str}")
 
 
 def crawl_vk_knowledge(
     vk_token: str,
-    urls_filepath: Path,
-    output_filepath: Path,
+    groups_dict: dict[str, str],
+    out: DictWriter,
     cutoff_unix_date: int | None,
     posts_per_prequest: int = 100,
 ):
-    # 1. Авторизация
     try:
         vk = _autorize(vk_token)
     except Exception as e:
         logger.info(f"❌ Ошибка авторизации: {e}")
         return
 
-    # 2. Чтение списка групп
-    try:
-        groups_dict = _get_groups(urls_filepath)
-    except FileNotFoundError:
-        logger.info(f"❌ Файл {urls_filepath} не найден.")
-        return
-
-    _save_posts(vk, groups_dict, output_filepath, cutoff_unix_date, posts_per_prequest)
+    _save_posts(vk, groups_dict, out, cutoff_unix_date, posts_per_prequest)
 
 
 def main():
@@ -251,7 +227,7 @@ def main():
         raise ValueError("❌ В .env файле не задан VK_SERVICE_TOKEN")
 
     # Имя входного файла
-    INPUT_FILE = RESOURCES_DIR.joinpath("vk_urls.json")
+    URLS_FILE = RESOURCES_DIR.joinpath("vk_urls.json")
 
     # Файл для сохранения результатов (В crawl_vk_knowledge к названию файла добавятся даты)
     OUTPUT = SCRAPPED_DATA_DIR.joinpath("vk_scrapped.jsonl")
@@ -267,9 +243,22 @@ def main():
     # Количество постов для скачивания (максимум 100 за один запрос)
     POSTS_PER_REQUEST = 100
 
-    crawl_vk_knowledge(
-        VK_SERVICE_TOKEN, INPUT_FILE, OUTPUT, CUTOFF_DATE, POSTS_PER_REQUEST
-    )
+    try:
+        groups_dict = extract_groups(URLS_FILE)
+        out_writer = JsonlWriter(OUTPUT)
+        crawl_vk_knowledge(
+            VK_SERVICE_TOKEN, groups_dict, out_writer, CUTOFF_DATE, POSTS_PER_REQUEST
+        )
+
+        min_date = out_writer.get_value("min_date")
+        max_date = out_writer.get_value("max_date")
+        new_name = OUTPUT.stem + f"_{min_date}_to_{max_date}" + OUTPUT.suffix
+        new_path = OUTPUT.parent / new_name
+
+        OUTPUT.rename(new_path)
+    except FileNotFoundError:
+        logger.info(f"❌ Файл {URLS_FILE} не найден.")
+        return
 
 
 if __name__ == "__main__":

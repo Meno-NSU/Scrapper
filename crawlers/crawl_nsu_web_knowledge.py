@@ -7,12 +7,14 @@ import warnings
 import time
 import datetime
 
+from utils.dict_rw import DictWriter
+from utils.jsonl_rw import JsonlWriter
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-def _extract_urls(urls_fname: Path) -> dict[str, str]:
+def extract_urls(urls_fname: Path) -> dict[str, str]:
     with urls_fname.open(mode="r", encoding="utf-8", errors="ignore") as fp:
         url_data = json.load(fp)
 
@@ -49,43 +51,37 @@ def get_configs():
     return {"browser": browser_config, "run": run_config}
 
 
-async def crawl_web_knowledge(url_fname: Path, output: Path, configs: dict):
+async def crawl_web_knowledge(url_dict: dict[str, str], out: DictWriter, configs: dict):
     success_count = 0
     fail_count = 0
 
-    # 1. Извлечение urls из json файла
-    url_dict = _extract_urls(url_fname)
     url_list = sorted(list(url_dict.keys()))
 
     # 2. Сбор данных
-    with open(output, mode="w", encoding="utf-8") as fp:
-        async with AsyncWebCrawler(config=configs["browser"]) as crawler:
-            for doc_url in tqdm(url_list, desc=f"Сбор данных с Web источников"):
-                try:
-                    result = await crawler.arun(url=doc_url, config=configs["run"])
+    async with AsyncWebCrawler(config=configs["browser"]) as crawler:
+        for doc_url in tqdm(url_list, desc=f"Сбор данных с Web источников"):
+            try:
+                result = await crawler.arun(url=doc_url, config=configs["run"])
 
-                    if result.success:
-                        jsonified_result = {
-                            "url": doc_url,
-                            "name": url_dict[doc_url],
-                            "content": result.markdown.fit_markdown,
-                            "date": None,  # Для веб-страниц часто нет явной даты публикации
-                            "collection_date": int(time.time()),
-                        }
-                        fp.write(
-                            json.dumps(jsonified_result, ensure_ascii=False) + "\n"
-                        )
-                        fp.flush()  # Сохраняем сразу
-                        success_count += 1
-                    else:
-                        fail_count += 1
-                        # Генерируем предупреждение, но не останавливаем скрипт
-                        warnings.warn(
-                            f"FAIL {doc_url}: Status={result.status_code}, Error={result.error_message}"
-                        )
-                except Exception as e:
+                if result.success:
+                    jsonified_result = {
+                        "url": doc_url,
+                        "name": url_dict[doc_url],
+                        "content": result.markdown.fit_markdown,
+                        "date": None,  # Для веб-страниц часто нет явной даты публикации
+                        "collection_date": int(time.time()),
+                    }
+                    out.write_dict(jsonified_result)
+                    success_count += 1
+                else:
                     fail_count += 1
-                    logger.info(f"EXCEPTION {doc_url}: {e}")
+                    # Генерируем предупреждение, но не останавливаем скрипт
+                    warnings.warn(
+                        f"FAIL {doc_url}: Status={result.status_code}, Error={result.error_message}"
+                    )
+            except Exception as e:
+                fail_count += 1
+                logger.info(f"EXCEPTION {doc_url}: {e}")
 
     # 3. Итоговый отчет
     logger.info("-" * 40)
@@ -96,8 +92,6 @@ async def crawl_web_knowledge(url_fname: Path, output: Path, configs: dict):
         logger.info(f"⚠️ Ошибок: {fail_count} (см. предупреждения выше)")
     else:
         logger.info(f"Ошибок: 0")
-
-    logger.info(f"Файл: {output}")
 
 
 async def main():
@@ -116,7 +110,11 @@ async def main():
     filename = f"web_scrapped_{current_date}.jsonl"
     output = SCRAPPED_DATA_DIR.joinpath(filename)
 
-    await crawl_web_knowledge(url_fname, output, get_configs())
+    url_dict = extract_urls(url_fname)
+    out_writer = JsonlWriter(output)
+    await crawl_web_knowledge(url_dict, out_writer, get_configs())
+
+    logger.info(f"Файл: {output}")
 
 
 if __name__ == "__main__":

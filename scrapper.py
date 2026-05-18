@@ -1,15 +1,29 @@
 import asyncio
 import datetime
+import os
 from pathlib import Path
 from typing import Iterator
+from attr import dataclass
 from dotenv import load_dotenv
-import os
 import yaml
 from crawlers import crawl_nsu_vk_knowledge as cvk
 from crawlers import crawl_nsu_web_knowledge as cweb
-import merge_knowledge as mk
-import filter_knowledge as fk
+from utils.jsonl_rw import JsonlWriter
+from utils.web_cfg import WebCfg
 from utils.logger import get_logger
+from utils.vk_cfg import VkCfg
+import filter_knowledge as fk
+import merge_knowledge as mk
+
+@dataclass(frozen=True)
+class ScrapperCfg:
+    vk_service_token: str
+    vk_cutoff_date: str | None = None
+    urls_dir: Path = Path()
+    output_dir: Path = Path()
+    clear_before_crawl: bool = False
+    save_temp_files: bool = True
+
 
 logger = get_logger("scrapper")
 
@@ -24,36 +38,67 @@ def _clear_data_before_crawling(directory: Path) -> None:
     delete_files(directory.rglob("*.jsonl"))
 
 
-def crawl_vk_data(urls_dir: Path, output_dir: Path, config: dict):
-    token = os.getenv("VK_SERVICE_TOKEN")
-    if token is None:
-        raise ValueError("❌ В .env файле не задан VK_SERVICE_TOKEN")
-
-    urls_file = urls_dir.joinpath("vk_urls.json")
-    output_file = output_dir.joinpath("vk_scrapped.jsonl")
+def crawl_vk_data(cfg: VkCfg):
+    token = cfg.vk_service_token
 
     cutoff_date = None
-    if config["VK_CUTOFF_DATE"] is not None and config["VK_CUTOFF_DATE"] != "None":
+    if cfg.vk_cutoff_date is not None and cfg.vk_cutoff_date != "None":
         cutoff_date = int(
-            datetime.datetime.strptime(
-                str(config["VK_CUTOFF_DATE"]), "%Y-%m-%d"
-            ).timestamp()
+            datetime.datetime.strptime(str(cfg.vk_cutoff_date), "%Y-%m-%d").timestamp()
         )
 
-    cvk.crawl_vk_knowledge(token, urls_file, output_file, cutoff_date)
+    cvk.crawl_vk_knowledge(token, cfg.vk_groups, cfg.output_writer, cutoff_date)
 
 
-async def craw_web_data(urls_dir: Path, output_dir: Path, config: dict):
-    url_fname = urls_dir.joinpath("web_urls.json")
+async def craw_web_data(cfg: WebCfg):
+    await cweb.crawl_web_knowledge(cfg.web_urls, cfg.output_writer, cweb.get_configs())
 
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+
+def run_scrapper(vk_cfg: VkCfg | None = None, web_cfg: WebCfg | None = None):
+    if vk_cfg:
+        logger.info("Сбор данных с ВК...")
+        crawl_vk_data(vk_cfg)
+    if web_cfg:
+        logger.info("Сбор данных с web-источников...")
+        asyncio.run(craw_web_data(web_cfg))
+
+
+def get_vk_cfg(cfg: ScrapperCfg) -> tuple[VkCfg, Path]:
+    URLS_FILE = cfg.urls_dir.joinpath("vk_urls.json")
+    groups_dict = cvk.extract_groups(URLS_FILE)
+    output = cfg.output_dir.joinpath("vk_scrapped.jsonl")
+
+    return VkCfg(
+        vk_service_token=cfg.vk_service_token,
+        vk_cutoff_date=cfg.vk_cutoff_date,
+        vk_groups=groups_dict,
+        output_writer=JsonlWriter(output),
+    ), output
+
+def rename_vk_scrapped_file(vk_cfg: VkCfg, output: Path):
+    min_date = vk_cfg.output_writer.get_value("min_date")
+    max_date = vk_cfg.output_writer.get_value("max_date")
+    new_name = output.stem + f"_{min_date}_to_{max_date}" + output.suffix
+    new_path = output.parent / new_name
+
+    output.rename(new_path)
+
+def get_web_cfg(cfg: ScrapperCfg) -> WebCfg:
+    URLS_FILE = cfg.urls_dir.joinpath("web_urls.json")
+    urls = cweb.extract_urls(URLS_FILE)
+
+    current_date = datetime.datetime.now().strftime("%Y%m%d")
     filename = f"web_scrapped_{current_date}.jsonl"
-    output_file = output_dir.joinpath(filename)
+    output = cfg.output_dir.joinpath(filename)
+    output_writer = JsonlWriter(output)
 
-    await cweb.crawl_web_knowledge(url_fname, output_file, cweb.get_configs())
+    return WebCfg(
+        web_urls=urls,
+        output_writer=output_writer,
+    )
 
 
-def run_scrapper():
+def main():
     BASE = Path(__file__).resolve().parent
     load_dotenv()
 
@@ -75,35 +120,43 @@ def run_scrapper():
     if config.get("scrapper", None) is None:
         config["scrapper"] = dict()
 
-    config = default_config["scrapper"] | config["scrapper"]
+    config_dict = default_config["scrapper"] | config["scrapper"]
 
-    URLS_DIR = BASE.joinpath(config["URLS_DIR"])
-    OUTPUT_DIR = BASE.joinpath(config["OUTPUT_DIR"])
+    URLS_DIR = BASE.joinpath(config_dict["URLS_DIR"])
+    OUTPUT_DIR = BASE.joinpath(config_dict["OUTPUT_DIR"])
+    token = os.getenv("VK_SERVICE_TOKEN")
+    if token is None:
+        raise ValueError("❌ В .env файле не задан VK_SERVICE_TOKEN")
 
-    if config["CLEAR_BEFORE_CRAWL"]:
+    cfg = ScrapperCfg(
+        vk_service_token=token,
+        vk_cutoff_date=config_dict["VK_CUTOFF_DATE"],
+        urls_dir=URLS_DIR,
+        output_dir=OUTPUT_DIR,
+        clear_before_crawl=config_dict["CLEAR_BEFORE_CRAWL"],
+        save_temp_files=config_dict["SAVE_TEMP_FILES"],
+    )
+
+    if cfg.clear_before_crawl:
         logger.info(f"Очищение {OUTPUT_DIR} от .jsonl перед сбором данных")
         _clear_data_before_crawling(OUTPUT_DIR)
 
-    logger.info("Сбор данных с ВК...")
-    crawl_vk_data(URLS_DIR, OUTPUT_DIR, config)
-    logger.info("Сбор данных с web-источников...")
-    asyncio.run(craw_web_data(URLS_DIR, OUTPUT_DIR, config))
+    vk_cfg, scrapped_vk_file = get_vk_cfg(cfg)
+    web_cfg = get_web_cfg(cfg)
 
-    merged_knowledge = OUTPUT_DIR.joinpath("merged_latest_knowledge.jsonl")
-    files_dict = mk.get_latest_files(OUTPUT_DIR)
+    run_scrapper(vk_cfg=vk_cfg, web_cfg=web_cfg)
+    rename_vk_scrapped_file(vk_cfg, scrapped_vk_file)
+    
+    merged_knowledge = cfg.output_dir.joinpath("merged_latest_knowledge.jsonl")
+    files_dict = mk.get_latest_files(cfg.output_dir)
 
     mk.merge_jsonl_files(list(files_dict.values()), merged_knowledge)
 
-    filtered_output = OUTPUT_DIR.joinpath("filtered_merged_latest_knowledge.jsonl")
+    filtered_output = cfg.output_dir.joinpath("filtered_merged_latest_knowledge.jsonl")
     fk.process(merged_knowledge, filtered_output, fk.get_pipeline())
-    if not config["SAVE_TEMP_FILES"]:
+    if cfg.save_temp_files:
         logger.info("Удаление временных файлов:")
-        delete_files(iter(list(files_dict.values()) + [merged_knowledge]))
-
-
-def main():
-    run_scrapper()
-
+        delete_files(iter([merged_knowledge]))
 
 if __name__ == "__main__":
     main()
