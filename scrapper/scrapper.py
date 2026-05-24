@@ -17,6 +17,7 @@ import scrapper.merge_knowledge as mk
 
 logger = get_logger("scrapper")
 
+
 @dataclass(frozen=True)
 class ScrapperCfg:
     vk_service_token: str
@@ -25,6 +26,7 @@ class ScrapperCfg:
     output_dir: Path = Path()
     clear_before_crawl: bool = False
     save_temp_files: bool = True
+
 
 def delete_files(files: Iterator[Path]) -> None:
     for file in files:
@@ -124,8 +126,8 @@ def main():
 
     config_dict = default_config["scrapper"] | config["scrapper"]
 
-    URLS_DIR = BASE.joinpath(config_dict["URLS_DIR"])
-    OUTPUT_DIR = BASE.joinpath(config_dict["OUTPUT_DIR"])
+    URLS_DIR = BASE.parent.joinpath(config_dict["URLS_DIR"])
+    OUTPUT_DIR = BASE.parent.joinpath(config_dict["OUTPUT_DIR"])
     token = os.getenv("VK_SERVICE_TOKEN")
     if token is None:
         raise ValueError("❌ В .env файле не задан VK_SERVICE_TOKEN")
