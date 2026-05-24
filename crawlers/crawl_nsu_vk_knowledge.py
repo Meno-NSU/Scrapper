@@ -3,7 +3,7 @@ from utils.dict_rw import DictWriter
 import os
 from pathlib import Path
 import time
-import datetime
+from datetime import datetime
 from urllib.parse import urlparse
 from utils.jsonl_rw import JsonlWriter
 import vk_api
@@ -36,8 +36,14 @@ def _to_output_dict(post: dict, name: str) -> dict:
     result["name"] = name
     result["content"] = post.get("text", " ")
 
-    result["date"] = post.get("date")
-    result["collection_date"] = int(time.time())
+    vk_timestamp = post.get("date")
+    if vk_timestamp:
+        result["doc_date"] = str(datetime.fromtimestamp(vk_timestamp))
+    else:
+        result["doc_date"] = str(datetime.now())
+
+    # 2. Время сбора (текущее местное время)
+    result["scrapped_at"] = str(datetime.now())
 
     # Дополнительные поля для отладки, если нужно
     if "is_pinned" in post:
@@ -104,12 +110,12 @@ def _collect_data(
 
     # Форматирование дат для красивого вывода в лог
     min_str = (
-        datetime.datetime.fromtimestamp(min_date).strftime("%Y-%m-%d %H:%M:%S")
+        datetime.fromtimestamp(min_date).strftime("%Y-%m-%d %H:%M:%S")
         if min_date is not None
         else "N/A"
     )
     max_str = (
-        datetime.datetime.fromtimestamp(max_date).strftime("%Y-%m-%d %H:%M:%S")
+        datetime.fromtimestamp(max_date).strftime("%Y-%m-%d %H:%M:%S")
         if max_date is not None
         else "N/A"
     )
@@ -179,13 +185,13 @@ def _save_posts(
 
     min_date_str = "nan"
     if global_min_date is not None:
-        min_date_str = datetime.datetime.fromtimestamp(global_min_date).strftime(
+        min_date_str = datetime.fromtimestamp(global_min_date).strftime(
             "%Y%m%d"
         )
 
     max_date_str = "nan"
     if global_max_date is not None:
-        max_date_str = datetime.datetime.fromtimestamp(global_max_date).strftime(
+        max_date_str = datetime.fromtimestamp(global_max_date).strftime(
             "%Y%m%d"
         )
 

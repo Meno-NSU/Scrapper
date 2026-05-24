@@ -68,8 +68,8 @@ async def crawl_web_knowledge(url_dict: dict[str, str], out: DictWriter, configs
                         "url": doc_url,
                         "name": url_dict[doc_url],
                         "content": result.markdown.fit_markdown,
-                        "date": None,  # Для веб-страниц часто нет явной даты публикации
-                        "collection_date": int(time.time()),
+                        "doc_date": str(datetime.datetime.now()),
+                        "scrapped_at": str(datetime.datetime.now()),
                     }
                     out.write_dict(jsonified_result)
                     success_count += 1

@@ -1,15 +1,15 @@
 import json
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Any
+from utils.dict_rw import DictWriter
 
-from utils.dict_rw import DictReader, DictWriter
-
-
-class JsonlReader(DictReader):
+class JsonlReader:
     def __init__(self, path: Path):
         self.path = path
 
     def read_dicts(self) -> Iterator[dict]:
+        if not self.path.exists():
+            return
         with open(self.path, "r", encoding="utf-8") as f:
             for line in f:
                 if line.strip():
@@ -19,17 +19,18 @@ class JsonlReader(DictReader):
         if not self.path or not self.path.exists():
             return 0
         with open(self.path, "r", encoding="utf-8") as f:
-            return sum(1 for _ in f)
+            return sum(1 for line in f if line.strip())
 
 
 class JsonlWriter(DictWriter):
     def __init__(self, path: Path):
         super().__init__()
         self.path = path
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         self._file = open(self.path, "w", encoding="utf-8")
 
     def write_dict(self, item: dict) -> None:
-        if self._file:
+        if self._file and not self._file.closed:
             self._file.write(json.dumps(item, ensure_ascii=False) + "\n")
 
     def __exit__(self, exc_type, exc_val, exc_tb):
