@@ -1,0 +1,7 @@
+scrapper:
+  VK_SERVICE_TOKEN: None
+  VK_CUTOFF_DATE: None
+  URLS_DIR: urls
+  OUTPUT_DIR: scrapped_data
+  CLEAR_BEFORE_CRAWL: false
+  SAVE_TEMP_FILES: true
