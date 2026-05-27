@@ -91,7 +91,7 @@ async def crawl_web_knowledge(url_dict: dict[str, str], out: DictWriter, configs
                     url=doc_url, config=config
                 )
 
-                if result.success:
+                if result.success or getattr(result, "metadata", None):
                     jsonified_result = {
                         "url": doc_url,
                         "name": url_dict[doc_url],
