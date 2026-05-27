@@ -1,7 +1,15 @@
 import json
 from pathlib import Path
 import asyncio
-from crawl4ai import *
+from crawl4ai import (
+    BrowserConfig,
+    CrawlerRunConfig,
+    DefaultMarkdownGenerator,
+    AsyncWebCrawler,
+    PruningContentFilter,
+)
+from crawl4ai.models import CrawlResultContainer
+from crawl4ai.processors.pdf import PDFCrawlerStrategy
 from tqdm import tqdm
 import warnings
 import time
@@ -10,6 +18,7 @@ import datetime
 from utils.dict_rw import DictWriter
 from utils.jsonl_rw import JsonlWriter
 from utils.logger import get_logger
+from utils.pdf_scrapper import PDFContentSmarterScraper
 
 logger = get_logger(__name__)
 
@@ -47,8 +56,21 @@ def get_configs():
         process_iframes=True,
         verbose=False,
     )
+    pdf_config = CrawlerRunConfig(
+        markdown_generator=DefaultMarkdownGenerator(
+            content_filter=PruningContentFilter(threshold=0.6),
+            options={"ignore_links": True},
+        ),
+        word_count_threshold=10,  # Minimum words per content block
+        excluded_tags=["form", "header"],
+        exclude_external_links=True,  # Remove external links
+        remove_overlay_elements=True,  # Remove popups/modals
+        process_iframes=True,
+        verbose=False,
+        scraping_strategy=PDFContentSmarterScraper(),
+    ) 
 
-    return {"browser": browser_config, "run": run_config}
+    return {"browser": browser_config, "run": run_config, "pdf": pdf_config}
 
 
 async def crawl_web_knowledge(url_dict: dict[str, str], out: DictWriter, configs: dict):
@@ -61,7 +83,13 @@ async def crawl_web_knowledge(url_dict: dict[str, str], out: DictWriter, configs
     async with AsyncWebCrawler(config=configs["browser"]) as crawler:
         for doc_url in tqdm(url_list, desc=f"Сбор данных с Web источников"):
             try:
-                result = await crawler.arun(url=doc_url, config=configs["run"])
+                if doc_url.endswith(".pdf"):
+                    config = configs["pdf"]
+                else:
+                    config = configs["run"]
+                result: CrawlResultContainer = await crawler.arun(
+                    url=doc_url, config=config
+                )
 
                 if result.success:
                     jsonified_result = {
